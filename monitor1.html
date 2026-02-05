@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>NASA Asteroid Tracker 2D/3D</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root { --space-bg: #05070a; --ui-bg: rgba(15, 23, 42, 0.9); --accent: #38bdf8; --text: #f1f5f9; }
+        body { background: var(--space-bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; }
+        
+        /* Pannello UI */
+        .dashboard { position: absolute; top: 20px; left: 20px; z-index: 10; background: var(--ui-bg); padding: 20px; border-radius: 15px; width: 320px; backdrop-filter: blur(10px); border: 1px solid #334155; }
+        select { width: 100%; padding: 10px; background: #0f172a; color: white; border: 1px solid var(--accent); border-radius: 5px; margin: 10px 0; }
+        
+        #display-container { width: 100vw; height: 100vh; }
+        .explanation { position: absolute; bottom: 20px; right: 20px; max-width: 400px; background: var(--ui-bg); padding: 15px; border-radius: 10px; font-size: 0.9rem; border-right: 4px solid var(--accent); }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <h2 style="margin:0; color:var(--accent)">NASA NeoWs Explorer</h2>
+        <p style="font-size: 0.8rem">Oggetti in avvicinamento oggi</p>
+        
+        <label>Modalità Vista:</label>
+        <select id="viewSelect">
+            <option value="2d">Confronto Dimensioni (2D)</option>
+            <option value="3d">Distanza dalla Terra (3D)</option>
+        </select>
+        
+        <div id="infoBox" style="font-size: 0.85rem; margin-top: 15px; color: #94a3b8;">
+            Recupero dati spaziali...
+        </div>
+    </div>
+
+    <div id="display-container">
+        <canvas id="canvas2d"></canvas>
+    </div>
+
+    <div class="explanation">
+        <h3>Spiegazione Tecnica</h3>
+        <p><strong>1. API Fetch:</strong> Interroghiamo <code>api.nasa.gov</code> usando una <code>DEMO_KEY</code>. I dati JSON contengono il diametro stimato e la distanza di avvicinamento (Miss Distance).</p>
+        <p><strong>2. Logica 2D:</strong> Usiamo il diametro degli asteroidi per disegnare cerchi proporzionali. È una visualizzazione di <em>scala</em>.</p>
+        <p><strong>3. Logica 3D:</strong> Usiamo <strong>Three.js</strong>. La Terra è al centro (0,0,0). Gli asteroidi sono posizionati a una distanza <code>z</code> proporzionale ai chilometri reali di distanza dal nostro pianeta.</p>
+    </div>
+
+    <script>
+        let asteroidData = [];
+        let scene, camera, renderer, asteroids3D = [];
+        const canvas2d = document.getElementById('canvas2d');
+        const ctx2d = canvas2d.getContext('2d');
+        const container = document.getElementById('display-container');
+
+        // --- 1. RECUPERO DATI ---
+        async function fetchAsteroids() {
+            const today = new Date().toISOString().split('T')[0];
+            const url = `https://api.nasa.gov/neo/rest/v1/feed?start_date=${today}&end_date=${today}&api_key=DEMO_KEY`;
+            
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                // Trasformiamo l'oggetto complesso della NASA in un array semplice
+                asteroidData = data.near_earth_objects[today].map(neo => ({
+                    name: neo.name,
+                    size: neo.estimated_diameter.meters.estimated_diameter_max,
+                    distance: neo.close_approach_data[0].miss_distance.kilometers
+                }));
+                
+                document.getElementById('infoBox').innerHTML = `Trovati <b>${asteroidData.length}</b> asteroidi in transito oggi.`;
+                updateView();
+            } catch (err) {
+                document.getElementById('infoBox').innerText = "Errore API NASA. Riprova più tardi.";
+            }
+        }
+
+        // --- 2. RENDERING 2D ---
+        function draw2D() {
+            stop3D();
+            canvas2d.style.display = "block";
+            canvas2d.width = window.innerWidth;
+            canvas2d.height = window.innerHeight;
+            
+            ctx2d.clearRect(0, 0, canvas2d.width, canvas2d.height);
+            
+            asteroidData.forEach((ast, i) => {
+                const radius = Math.max(ast.size / 10, 5); // Scaliamo la dimensione
+                const x = (canvas2d.width / (asteroidData.length + 1)) * (i + 1);
+                const y = canvas2d.height / 2;
+
+                // Disegno cerchio asteroide
+                ctx2d.beginPath();
+                ctx2d.arc(x, y, radius, 0, Math.PI * 2);
+                ctx2d.fillStyle = "#94a3b8";
+                ctx2d.fill();
+                ctx2d.strokeStyle = "#38bdf8";
+                ctx2d.stroke();
+
+                // Etichetta
+                ctx2d.fillStyle = "white";
+                ctx2d.font = "10px Arial";
+                ctx2d.textAlign = "center";
+                ctx2d.fillText(ast.name.replace(/[()]/g, ''), x, y + radius + 20);
+                ctx2d.fillText(`${Math.round(ast.size)}m`, x, y + radius + 35);
+            });
+        }
+
+        // --- 3. RENDERING 3D ---
+        function init3D() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            // Luce
+            const light = new THREE.PointLight(0xffffff, 1.5);
+            light.position.set(50, 50, 50);
+            scene.add(light);
+            scene.add(new THREE.AmbientLight(0x222222));
+
+            // Creiamo una "Terra" al centro
+            const earthGeo = new THREE.SphereGeometry(10, 32, 32);
+            const earthMat = new THREE.MeshPhongMaterial({ color: 0x22d3ee, wireframe: true });
+            const earth = new THREE.Mesh(earthGeo, earthMat);
+            scene.add(earth);
+
+            camera.position.z = 150;
+        }
+
+        function draw3D() {
+            canvas2d.style.display = "none";
+            if (!renderer) init3D();
+            renderer.domElement.style.display = "block";
+
+            // Rimuovi asteroidi precedenti
+            asteroids3D.forEach(a => scene.remove(a));
+            asteroids3D = [];
+
+            asteroidData.forEach((ast, i) => {
+                const geo = new THREE.SphereGeometry(Math.max(ast.size/50, 1), 16, 16);
+                const mat = new THREE.MeshPhongMaterial({ color: 0xffffff });
+                const mesh = new THREE.Mesh(geo, mat);
+
+                // Posizionamento basato sulla distanza reale (scalata)
+                const distScale = ast.distance / 1000000; // 1 unità Three.js = 1 milione di km
+                const angle = (i / asteroidData.length) * Math.PI * 2;
+                
+                mesh.position.x = Math.cos(angle) * (distScale + 20);
+                mesh.position.y = Math.sin(angle) * (distScale + 20);
+                mesh.position.z = (Math.random() - 0.5) * 50;
+
+                scene.add(mesh);
+                asteroids3D.push(mesh);
+            });
+        }
+
+        function animate3D() {
+            if (document.getElementById('viewSelect').value === '3d') {
+                requestAnimationFrame(animate3D);
+                scene.rotation.y += 0.005;
+                renderer.render(scene, camera);
+            }
+        }
+
+        function stop3D() {
+            if (renderer) renderer.domElement.style.display = "none";
+        }
+
+        function updateView() {
+            const mode = document.getElementById('viewSelect').value;
+            if (mode === '2d') draw2D();
+            else { draw3D(); animate3D(); }
+        }
+
+        document.getElementById('viewSelect').onchange = updateView;
+        window.onload = fetchAsteroids;
+    </script>
+</body>
+</html>

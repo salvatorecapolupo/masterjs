@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Master: 15 Domande di Codice</title>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --text: #f8fafc; --accent: #38bdf8; --green: #22c55e; --red: #ef4444; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        
+        .quiz-box { background: var(--card); width: 100%; max-width: 800px; padding: 30px; border-radius: 12px; border: 1px solid #334155; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        
+        /* Header Info */
+        .header-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 0.9rem; color: #94a3b8; font-weight: bold; }
+        .file-tag { background: rgba(56, 189, 248, 0.1); color: var(--accent); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(56, 189, 248, 0.2); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        /* Code Block */
+        pre { background: #020617; padding: 15px; border-radius: 6px; border-left: 4px solid var(--accent); overflow-x: auto; margin: 15px 0; font-size: 0.95rem; line-height: 1.5; }
+        code { font-family: 'Consolas', 'Monaco', monospace; color: #e2e8f0; }
+        
+        /* Syntax Highlight */
+        .kwd { color: #c084fc; } .var { color: #38bdf8; } .str { color: #86efac; } .num { color: #f472b6; } .com { color: #64748b; font-style: italic; }
+
+        /* Questions & Options */
+        h3 { font-size: 1.15rem; line-height: 1.5; margin-bottom: 20px; font-weight: 600; }
+        .options { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+        @media (max-width: 600px) { .options { grid-template-columns: 1fr; } }
+
+        button.opt { 
+            background: #334155; color: white; border: 2px solid transparent; 
+            padding: 15px; text-align: left; border-radius: 6px; cursor: pointer; 
+            font-size: 0.95rem; transition: 0.2s; position: relative;
+        }
+        button.opt:hover:not(:disabled) { background: #475569; border-color: var(--accent); transform: translateY(-2px); }
+        
+        /* Feedback States */
+        button.correct { background: rgba(34, 197, 94, 0.2); border-color: var(--green); color: var(--green); font-weight: bold; }
+        button.wrong { background: rgba(239, 68, 68, 0.2); border-color: var(--red); color: var(--red); opacity: 0.6; }
+        
+        .feedback { background: #1e1b4b; padding: 15px; margin-top: 20px; border-radius: 6px; display: none; line-height: 1.6; border-left: 3px solid #6366f1; font-size: 0.95rem; animation: fadeIn 0.3s; }
+        
+        .nav-btn { background: var(--accent); color: #0f172a; border: none; padding: 12px 30px; font-weight: bold; border-radius: 4px; margin-top: 20px; cursor: pointer; float: right; display: none; transition: 0.2s; }
+        .nav-btn:hover { filter: brightness(1.1); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="quiz-box" id="quiz-ui">
+        <div class="header-info">
+            <span id="progress">Domanda 1/15</span>
+            <span id="score">Punti: 0</span>
+        </div>
+
+        <div style="margin-bottom: 10px;">
+            <span class="file-tag" id="file-ref">FILE: ...</span>
+        </div>
+        
+        <div id="code-view"></div>
+        <h3 id="question">...</h3>
+        
+        <div class="options" id="opt-container"></div>
+        <div class="feedback" id="explain"></div>
+        
+        <button class="nav-btn" id="next" onclick="nextQ()">Prossima ➜</button>
+    </div>
+
+    <div class="quiz-box" id="end-ui" style="display:none; text-align:center;">
+        <h2 style="font-size: 2.5rem; margin-bottom: 10px;">Test Completato</h2>
+        <div id="final-score-display" style="font-size: 4rem; font-weight: bold; color: var(--accent); margin: 20px 0;">0/15</div>
+        <p id="final-msg" style="font-size: 1.1rem; color: #cbd5e1; margin-bottom: 30px;"></p>
+        <button class="nav-btn" style="float:none; display:inline-block;" onclick="location.reload()">Ricomincia Test</button>
+    </div>
+
+    <script>
+        // DATABASE 15 DOMANDE (Review Completa)
+        const db = [
+            // --- GRUPPO 1: REGEX & INPUT (Monitor 3) ---
+            {
+                file: "monitor3.html",
+                code: `// Utente digita "PARCO"\nif (/[PR]/.test(val)) {\n    val = val.replace(/[PR]/g, '');\n}`,
+                q: "Se la variabile 'val' contiene 'PARCO', cosa rimane dopo l'esecuzione?",
+                opts: ["PARCO (nessun cambiamento)", "ARCO (rimossa P)", "ACO (rimosse P e R)", "PCO (rimossa A e R)"],
+                ok: 2,
+                info: "La Regex <code>/[PR]/g</code> (Global) trova e rimuove TUTTE le occorrenze delle lettere P e R. Quindi 'P' sparisce e 'R' sparisce. Restano A, C, O."
+            },
+            {
+                file: "monitor3.html",
+                code: `input.addEventListener('input', (e) => {\n   // ... codice validazione ...\n   createText(val);\n});`,
+                q: "L'evento scelto è 'input'. Quando viene eseguita la funzione?",
+                opts: ["Solo quando premo Invio", "Ogni volta che digito o cancello un singolo carattere", "Quando clicco fuori dal campo (perdita focus)", "Solo al caricamento della pagina"],
+                ok: 1,
+                info: "L'evento <code>input</code> scatta istantaneamente a ogni modifica del campo di testo, rendendo l'interazione 3D reattiva in tempo reale."
+            },
+
+            // --- GRUPPO 2: THREE.JS LOGIC (Monitor 1 & 2) ---
+            {
+                file: "monitor1.html (Asteroidi)",
+                code: `currentMesh.forEach(m => scene.remove(m));\ncurrentMesh = [];`,
+                q: "Cosa stiamo facendo agli oggetti 'm' prima di svuotare l'array?",
+                opts: ["Li stiamo nascondendo col CSS", "Li stiamo rimuovendo dalla scena 3D", "Li stiamo salvando nel database", "Stiamo cambiando il loro colore"],
+                ok: 1,
+                info: "Il comando <code>scene.remove(m)</code> stacca fisicamente l'oggetto dal rendering 3D. Se svuotassimo solo l'array senza questo comando, gli oggetti rimarrebbero visibili 'fantasmi' sullo schermo."
+            },
+            {
+                file: "monitor2.html (Testo 3D)",
+                code: `const geometry = new THREE.TextGeometry(msg, {\n    // ...\n    bevelEnabled: true,\n    bevelThickness: 0.5\n});`,
+                q: "Cosa controlla la proprietà 'bevelEnabled: true'?",
+                opts: ["Abilita le ombre", "Smussa i bordi del testo (effetto rilievo/arrotondato)", "Rende il testo trasparente", "Permette al testo di ruotare"],
+                ok: 1,
+                info: "In grafica 3D, il 'Bevel' è la smussatura degli spigoli vivi. Rende il testo più realistico e meno 'piatto'."
+            },
+            {
+                file: "monitor2.html",
+                code: `function animate() {\n    requestAnimationFrame(animate);\n    textMesh.rotation.y += 0.01;\n    renderer.render(scene, camera);\n}`,
+                q: "Perché 'requestAnimationFrame' richiama 'animate'?",
+                opts: ["È un errore ricorsivo (crash)", "Crea un loop infinito sincronizzato col monitor per l'animazione", "Serve a fermare l'animazione", "Ricarica la pagina HTML"],
+                ok: 1,
+                info: "Questo è il cuore del rendering. La funzione chiede al browser 'appena sei pronto a disegnare il prossimo frame, chiamami di nuovo', creando un ciclo fluido a 60fps."
+            },
+
+            // --- GRUPPO 3: AUDIO & CANVAS (Oscilloscopio & Spettroscopio) ---
+            {
+                file: "spettroscopio.html",
+                code: `let hue = i * (360 / bufferLength);\nctx.fillStyle = \`hsl(\${hue}, 80%, 60%)\`;`,
+                q: "La variabile 'hue' cambia col ciclo 'i'. Che effetto visivo produce?",
+                opts: ["Tutte le barre sono rosse", "Ogni barra ha un colore diverso (Gradiente Arcobaleno)", "Il colore cambia casualmente", "Lo schermo diventa nero"],
+                ok: 1,
+                info: "Mappando l'indice <code>i</code> da 0 a 360 (HSL color wheel), ogni frequenza viene disegnata con una tonalità progressiva diversa."
+            },
+            {
+                file: "spettroscopio.html",
+                code: `// Loop di disegno\nctx.fillStyle = "rgba(0, 0, 0, 0.2)";\nctx.fillRect(0, 0, canvas.width, canvas.height);`,
+                q: "Disegniamo un rettangolo nero semitrasparente (0.2) sopra il frame precedente. Risultato?",
+                opts: ["Lo schermo diventa subito nero", "Effetto 'scia' (Ghosting/Dissolvenza)", "Il grafico diventa invisibile", "Errore di sintassi"],
+                ok: 1,
+                info: "Poiché il nero non è opaco al 100%, i disegni precedenti 'traspaiono' per alcuni frame prima di sparire nel buio, creando una scia morbida."
+            },
+            {
+                file: "oscilloscopio.html",
+                code: `if (i === 0) ctx.moveTo(x, y);\nelse ctx.lineTo(x, y);`,
+                q: "Qual è la differenza logica tra 'moveTo' e 'lineTo'?",
+                opts: ["Nessuna, sono sinonimi", "moveTo sposta la 'penna' senza scrivere, lineTo traccia la linea", "moveTo serve per il 3D, lineTo per il 2D", "moveTo cancella, lineTo colora"],
+                ok: 1,
+                info: "È come usare una penna vera: <code>moveTo</code> serve a posizionarsi all'inizio senza lasciare tracce, <code>lineTo</code> disegna effettivamente il segmento."
+            },
+            {
+                file: "oscilloscopio.html",
+                code: `let v = dataArray[i] / 128.0;`,
+                q: "I dati audio vanno da 0 a 255 (silenzio = 128). Perché dividiamo per 128?",
+                opts: ["Per convertire in MP3", "Per normalizzare il valore vicino a 1.0 (scaling)", "Per eliminare il rumore di fondo", "Per calcolare la media"],
+                ok: 1,
+                info: "In grafica, spesso lavoriamo con fattori di scala normalizzati. 128/128 = 1. Questo ci aiuta a posizionare l'onda al centro del canvas."
+            },
+
+            // --- GRUPPO 4: DATI & API & MATEMATICA (Monitor 1 & 3) ---
+            {
+                file: "monitor1.html (API NASA)",
+                code: `const json = await response.json();\nasteroidData = json.features.map(neo => ({ name: neo.name, ... }));`,
+                q: "A cosa serve la funzione '.map()' sui dati JSON?",
+                opts: ["A disegnare una mappa geografica", "A trasformare l'array grezzo in un nuovo array semplificato", "A cancellare i dati vecchi", "A ordinare i dati per grandezza"],
+                ok: 1,
+                info: "<code>.map()</code> è un metodo fondamentale degli array JS. Prende ogni elemento originale, lo elabora e restituisce un nuovo array con la struttura che desideriamo."
+            },
+            {
+                file: "monitor1.html",
+                code: `const json = await response.json();`,
+                q: "La parola chiave 'await' indica che 'response.json()' è...",
+                opts: ["Istantaneo", "Asincrono (richiede tempo per il parsing)", "Una funzione matematica", "Un errore"],
+                ok: 1,
+                info: "Il parsing di un file JSON (specialmente se grande) non è immediato. <code>await</code> mette in pausa l'esecuzione finché i dati non sono pronti."
+            },
+            {
+                file: "monitor1.html (Posizionamento)",
+                code: `mesh.position.x = Math.cos(angle) * dist;\nmesh.position.y = Math.sin(angle) * dist;`,
+                q: "Usando Cos per X e Sin per Y, che forma geometrica creiamo?",
+                opts: ["Un Cerchio", "Un Quadrato", "Una Linea Retta", "Una Parabola"],
+                ok: 0,
+                info: "In trigonometria, Seno e Coseno sono le coordinate naturali di una circonferenza. Variando l'angolo, il punto gira attorno al centro."
+            },
+            {
+                file: "monitor1.html",
+                code: `mesh.position.z = (Math.random() - 0.5) * 50;`,
+                q: "Math.random() restituisce tra 0 e 1. Sottraendo 0.5 cosa otteniamo?",
+                opts: ["Sempre numeri negativi", "Numeri tra -0.5 e +0.5 (centrati sullo zero)", "Numeri interi", "Errore matematico"],
+                ok: 1,
+                info: "È un trucco standard per spargere oggetti casualmente attorno al centro (0). Invece di andare da 0 a 100 (tutti a destra), andranno da -50 a +50."
+            },
+            {
+                file: "monitor3.html (Slider)",
+                code: `const x = parseFloat(sliderX.value);`,
+                q: "Lo slider HTML restituisce una stringa. Cosa fa 'parseFloat'?",
+                opts: ["Arrotonda per eccesso", "Converte la stringa in un numero decimale", "Converte il numero in testo", "Controlla la sicurezza"],
+                ok: 1,
+                info: "Gli attributi HTML sono sempre stringhe. Per usare il valore in matematica (coordinate), dobbiamo convertirlo esplicitamente in numero con virgola (Float)."
+            },
+            
+            // --- GRUPPO 5: LOGICA DI CONTROLLO (Oscilloscopio) ---
+            {
+                file: "oscilloscopio.html",
+                code: `btn.onclick = () => {\n    if (isActive) stopAudio();\n    else startAudio();\n};`,
+                q: "Che tipo di logica implementa questo blocco?",
+                opts: ["Loop Infinito", "Toggle (Interruttore ON/OFF)", "Gestione Errori", "Caricamento Pagina"],
+                ok: 1,
+                info: "Controlla lo stato attuale: se è acceso spegne, se è spento accende. È la logica base di qualsiasi pulsante 'Play/Pause' o 'Mute'."
+            }
+        ];
+
+        // LOGICA DI GIOCO
+        let cur = 0;
+        let pts = 0;
+
+        function init() {
+            // Mischia le domande
+            db.sort(() => Math.random() - 0.5);
+            loadQ();
+        }
+
+        function loadQ() {
+            const item = db[cur];
+            document.getElementById('progress').innerText = `Domanda ${cur + 1} di ${db.length}`;
+            document.getElementById('file-ref').innerText = item.file;
+            document.getElementById('code-view').innerHTML = `<pre>${colorCode(item.code)}</pre>`;
+            document.getElementById('question').innerText = item.q;
+            
+            const box = document.getElementById('opt-container');
+            box.innerHTML = '';
+            
+            item.opts.forEach((op, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'opt';
+                btn.innerText = op;
+                btn.onclick = () => check(i, btn);
+                box.appendChild(btn);
+            });
+
+            document.getElementById('explain').style.display = 'none';
+            document.getElementById('next').style.display = 'none';
+        }
+
+        function check(idx, btn) {
+            const item = db[cur];
+            const all = document.querySelectorAll('.opt');
+            all.forEach(b => b.disabled = true);
+
+            if(idx === item.ok) {
+                btn.classList.add('correct');
+                pts++;
+                document.getElementById('score').innerText = `Punti: ${pts}`;
+            } else {
+                btn.classList.add('wrong');
+                all[item.ok].classList.add('correct');
+            }
+
+            const exp = document.getElementById('explain');
+            exp.innerHTML = `<strong>Analisi:</strong> ${item.info}`;
+            exp.style.display = 'block';
+            
+            const nxt = document.getElementById('next');
+            nxt.style.display = 'block';
+            nxt.innerText = (cur < db.length - 1) ? "Prossima ➜" : "Vedi Risultati";
+        }
+
+        function nextQ() {
+            cur++;
+            if(cur < db.length) loadQ();
+            else showEnd();
+        }
+
+        function showEnd() {
+            document.getElementById('quiz-ui').style.display = 'none';
+            document.getElementById('end-ui').style.display = 'block';
+            document.getElementById('final-score-display').innerText = `${pts}/${db.length}`;
+            
+            const perc = (pts/db.length)*100;
+            let msg = "";
+            if(perc === 100) msg = "🏆 PERFECT! Sei un maestro del codice.";
+            else if(perc >= 80) msg = "🥇 Eccellente! Hai ottime basi.";
+            else if(perc >= 60) msg = "🥈 Buono, ma ripassa alcune logiche.";
+            else msg = "🥉 Rileggi i file sorgente e riprova!";
+            
+            document.getElementById('final-msg').innerText = msg;
+        }
+
+        // Colorazione Sintassi Semplificata
+        function colorCode(txt) {
+            return txt
+                .replace(/(\/\/.*)/g, '<span>$1</span>')
+                .replace(/(if|else|const|let|var|function|return|await|new)/g, '<span class="kwd">$1</span>')
+                .replace(/(scene|ctx|val|m|hue|sliderX|Math|document|window)/g, '<span class="var">$1</span>')
+                .replace(/('.*?'|`.*?`)/g, '<span class="str">$1</span>')
+                .replace(/(\b\d+\.?\d*\b)/g, '<span>$1</span>');
+        }
+
+        init();
+    </script>
+</body>
+</html>

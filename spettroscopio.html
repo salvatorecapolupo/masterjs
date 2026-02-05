@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizzatore di Spettro VoIP</title>
+    <style>
+        :root { --bg: #0b0f19; --card: #161b22; --accent: #8b5cf6; --text: #e6edf3; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        .container { max-width: 900px; width: 100%; }
+        canvas { background: #000; border: 1px solid #30363d; border-radius: 8px; width: 100%; height: 300px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+        
+        .controls { margin: 20px 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        button { padding: 12px 30px; font-size: 1rem; font-weight: bold; border: none; border-radius: 50px; cursor: pointer; transition: 0.3s; }
+        .btn-off { background: var(--accent); color: white; }
+        .btn-on { background: #f85149; color: white; }
+        
+        .doc-section { background: var(--card); padding: 25px; border-radius: 12px; margin-top: 20px; border: 1px solid #30363d; }
+        h2 { color: var(--accent); margin-top: 0; border-bottom: 1px solid #30363d; padding-bottom: 10px; }
+        .code-explanation { color: #8b949e; font-size: 0.95rem; }
+        strong { color: #fff; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1 style="text-align:center">Analizzatore di Frequenza VoIP</h1>
+        
+        <canvas id="visualizer"></canvas>
+
+        <div class="controls">
+            <button id="toggleBtn" class="btn-off">Attiva Analisi</button>
+            <span id="statusLabel" style="font-size: 0.8rem; opacity: 0.7;">Microfono: Spento</span>
+        </div>
+
+        <div class="doc-section">
+            <h2>Come funziona l'Analisi di Frequenza</h2>
+            <div class="code-explanation">
+                <p>Mentre l'oscilloscopio mostra la "pressione" dell'aria nel tempo, questo grafico usa la <strong>FFT (Fast Fourier Transform)</strong> per scomporre il suono nelle sue singole frequenze componenti:</p>
+                <ul>
+                    <li><strong>Sinistra (Bassi):</strong> Qui appaiono i suoni gravi e cupi.</li>
+                    <li><strong>Destra (Alti):</strong> Qui appaiono i suoni acuti (come le "S").</li>
+                    <li><strong>Il Gradiente:</strong> Abbiamo usato il sistema <code>HSL</code> (Hue, Saturation, Lightness). Il colore cambia in base alla posizione della frequenza: i bassi tendono al viola/blu, i medi al verde e gli alti al rosso.</li>
+                </ul>
+                <p>Nel <strong>VoIP</strong>, visualizzare lo spettro permette di capire se un <em>Codec</em> sta tagliando troppe informazioni (causando una voce "metallica") o se c'è rumore di fondo costante in una specifica banda.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let audioCtx, stream, source, analyser, animationId;
+        let isActive = false;
+
+        const btn = document.getElementById('toggleBtn');
+        const statusLabel = document.getElementById('statusLabel');
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+
+        async function toggleAudio() {
+            if (!isActive) {
+                // AVVIO SESSIONE
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                source = audioCtx.createMediaStreamSource(stream);
+                analyser = audioCtx.createAnalyser();
+
+                /** * analyser.fftSize determina la risoluzione. 
+                 * Un valore di 256 ci darà 128 barre di frequenza.
+                 */
+                analyser.fftSize = 256; 
+                source.connect(analyser);
+
+                isActive = true;
+                btn.innerText = "Spegni Microfono";
+                btn.className = "btn-on";
+                statusLabel.innerText = "Microfono: LIVE";
+                draw();
+            } else {
+                // CHIUSURA SESSIONE
+                cancelAnimationFrame(animationId);
+                stream.getTracks().forEach(t => t.stop());
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                isActive = false;
+                btn.innerText = "Attiva Analisi";
+                btn.className = "btn-off";
+                statusLabel.innerText = "Microfono: Spento";
+            }
+        }
+
+        function draw() {
+            if (!isActive) return;
+            animationId = requestAnimationFrame(draw);
+
+            // Otteniamo i dati di FREQUENZA invece che di tempo
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyser.getByteFrequencyData(dataArray);
+
+            // Pulizia sfondo con leggero effetto scia
+            ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const barWidth = (canvas.width / bufferLength) * 2.5;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                /**
+                 * CALCOLO DEL GRADIENTE:
+                 * i: indice corrente (frequenza)
+                 * bufferLength: totale frequenze
+                 * Usiamo i/bufferLength per mappare la frequenza su una scala di colori (0-360)
+                 */
+                let barHeight = dataArray[i] * 1.2;
+                let hue = i * (360 / bufferLength); // Ciclo completo di colori
+                
+                ctx.fillStyle = `hsl(${hue}, 80%, 60%)`;
+                
+                // Disegno della barra (partendo dal basso del canvas)
+                ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+
+                x += barWidth + 1;
+            }
+        }
+
+        btn.onclick = () => toggleAudio().catch(console.error);
+    </script>
+</body>
+</html>

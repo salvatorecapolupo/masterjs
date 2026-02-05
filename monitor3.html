@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Restricted Text & Light Control</title>
+    <style>
+        body { margin: 0; background: #050505; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        #panel { 
+            position: absolute; top: 20px; left: 20px; z-index: 10; 
+            background: rgba(15, 23, 42, 0.9); padding: 20px; border-radius: 12px; 
+            color: white; width: 260px; border: 1px solid #334155;
+        }
+        input, .slider { width: 100%; margin: 10px 0; }
+        label { font-size: 0.8rem; color: #38bdf8; font-weight: bold; }
+        .error-msg { color: #ef4444; font-size: 0.75rem; height: 15px; }
+    </style>
+</head>
+<body>
+
+    <div id="panel">
+        <h2 style="margin:0 0 10px 0; font-size: 1.2rem;">Controllo 3D</h2>
+        
+        <label>Testo (Max 5, No P o R):</label>
+        <input type="text" id="textInput" placeholder="HELLO" maxlength="5">
+        <div id="error" class="error-msg"></div>
+
+        <hr style="border: 0; border-top: 1px solid #334155; margin: 15px 0;">
+
+        <label>Posizione Luce X:</label>
+        <input type="range" id="lightX" class="slider" min="-50" max="50" value="10">
+        
+        <label>Posizione Luce Y:</label>
+        <input type="range" id="lightY" class="slider" min="-50" max="50" value="10">
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // --- CONFIGURAZIONE BASE ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        camera.position.set(0, 0, 40);
+
+        // --- ILLUMINAZIONE ---
+        // Usiamo una PointLight che brilla in tutte le direzioni da un punto specifico
+        const pointLight = new THREE.PointLight(0xffffff, 2, 100);
+        pointLight.position.set(10, 10, 20);
+        scene.add(pointLight);
+
+        // Un piccolo cubo che rappresenta la sorgente luminosa visibile
+        const lightHelperGeo = new THREE.SphereGeometry(1, 8, 8);
+        const lightHelperMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const lightSphere = new THREE.Mesh(lightHelperGeo, lightHelperMat);
+        scene.add(lightSphere);
+
+        scene.add(new THREE.AmbientLight(0x111111));
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        let textMesh, textFont;
+        const loader = new THREE.FontLoader();
+
+        // --- LOGICA DI FILTRO E CREAZIONE ---
+        function createText(msg) {
+            if (!textFont) return;
+            if (textMesh) scene.remove(textMesh);
+
+            const geometry = new THREE.TextGeometry(msg, {
+                font: textFont,
+                size: 8,
+                height: 2,
+                curveSegments: 12,
+                bevelEnabled: true,
+                bevelThickness: 0.2,
+                bevelSize: 0.1
+            });
+            geometry.center();
+
+            const material = new THREE.MeshPhongMaterial({ color: 0x38bdf8, shininess: 100 });
+            textMesh = new THREE.Mesh(geometry, material);
+            scene.add(textMesh);
+        }
+
+        // Caricamento Font
+        loader.load('https://threejs.org/examples/fonts/helvetiker_bold.typeface.json', (font) => {
+            textFont = font;
+            createText("CIAO");
+        });
+
+        // --- GESTIONE INPUT ---
+        const input = document.getElementById('textInput');
+        const errorDiv = document.getElementById('error');
+
+        input.addEventListener('input', (e) => {
+            let val = e.target.value.toUpperCase();
+            
+            // Validazione: rimuove P e R usando una Regex
+            if (/[PR]/.test(val)) {
+                errorDiv.innerText = "Caratteri 'P' e 'R' non ammessi!";
+                val = val.replace(/[PR]/g, '');
+                e.target.value = val;
+            } else {
+                errorDiv.innerText = "";
+            }
+
+            if (val.length > 0) createText(val);
+        });
+
+        // --- CONTROLLO LUCE ---
+        const sliderX = document.getElementById('lightX');
+        const sliderY = document.getElementById('lightY');
+
+        function updateLight() {
+            const x = parseFloat(sliderX.value);
+            const y = parseFloat(sliderY.value);
+            pointLight.position.x = x;
+            pointLight.position.y = y;
+            lightSphere.position.set(x, y, pointLight.position.z);
+        }
+
+        sliderX.oninput = updateLight;
+        sliderY.oninput = updateLight;
+
+        // --- ANIMAZIONE ---
+        function animate() {
+            requestAnimationFrame(animate);
+            if (textMesh) textMesh.rotation.y += 0.005;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        updateLight();
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

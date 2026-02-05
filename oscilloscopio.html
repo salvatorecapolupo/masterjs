@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorio VoIP: Oscilloscopio Interattivo</title>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --cyan: #22d3ee; --red: #ef4444; --text: #f8fafc; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        .container { max-width: 800px; width: 100%; }
+        
+        /* Grafica dell'Oscilloscopio */
+        canvas { background: #020617; border: 2px solid #334155; border-radius: 12px; width: 100%; height: 250px; display: block; }
+        
+        /* Controlli */
+        .controls { margin: 20px 0; display: flex; justify-content: center; gap: 15px; }
+        button { padding: 12px 24px; font-size: 1rem; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s; color: white; }
+        .btn-off { background: var(--cyan); color: #0f172a; }
+        .btn-on { background: var(--red); }
+        
+        /* Sezione Spiegazione */
+        .doc-section { background: var(--card); padding: 20px; border-radius: 12px; margin-top: 30px; line-height: 1.6; border-left: 4px solid var(--cyan); }
+        h2 { color: var(--cyan); margin-top: 0; }
+        code { background: #000; padding: 2px 6px; border-radius: 4px; font-family: monospace; color: #fbbf24; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1 style="text-align:center">Analizzatore Segnale VoIP</h1>
+        
+        <canvas id="osc"></canvas>
+
+        <div class="controls">
+            <button id="toggleBtn" class="btn-off">Attiva Microfono</button>
+        </div>
+
+        <div class="doc-section">
+            <h2>Spiegazione del Funzionamento</h2>
+            <p>Questo applicativo simula la fase di <strong>campionamento</strong> di una chiamata VoIP:</p>
+            <ul>
+                <li><strong>Hardware:</strong> Il browser usa <code>getUserMedia</code> per connettersi al microfono (Sorgente).</li>
+                <li><strong>Analisi (DSP):</strong> L'<code>AnalyserNode</code> trasforma le onde sonore in una serie di numeri (da 0 a 255) che rappresentano l'ampiezza istantanea.</li>
+                <li><strong>Visualizzazione:</strong> Usiamo questi numeri per disegnare punti su un <code>Canvas</code>. Nel VoIP reale, questi dati verrebbero invece compressi (Codec) e spediti via <strong>UDP</strong>.</li>
+                <li><strong>Gestione Risorse:</strong> Quando spegni il microfono, il codice ferma i "track" hardware per liberare la risorsa e proteggere la privacy.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Variabili globali per gestire lo stato
+        let audioCtx = null;
+        let stream = null;
+        let source = null;
+        let analyser = null;
+        let animationId = null;
+        let isActive = false;
+
+        const btn = document.getElementById('toggleBtn');
+        const canvas = document.getElementById('osc');
+        const ctx = canvas.getContext('2d');
+
+        /**
+         * FUNZIONE PRINCIPALE: Attivazione Audio
+         */
+        async function startAudio() {
+            // 1. Richiesta accesso hardware (Microfono)
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            // 2. Inizializzazione motore audio (si crea solo una volta)
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            // 3. Creazione dei nodi della catena audio
+            source = audioCtx.createMediaStreamSource(stream);
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 2048; // Risoluzione: numero di campioni per ogni fotogramma
+            
+            // Connessione: Sorgente -> Analizzatore
+            source.connect(analyser);
+
+            isActive = true;
+            btn.innerText = "Spegni Microfono";
+            btn.className = "btn-on";
+            
+            draw(); // Avvia il loop grafico
+        }
+
+        /**
+         * FUNZIONE DI CHIUSURA: Rilascio Risorse
+         */
+        function stopAudio() {
+            // Ferma l'animazione
+            cancelAnimationFrame(animationId);
+            
+            // Ferma fisicamente il sensore del microfono (luce LED si spegne)
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+
+            // Reset grafico
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            isActive = false;
+            btn.innerText = "Attiva Microfono";
+            btn.className = "btn-off";
+        }
+
+        /**
+         * LOOP DI DISEGNO: Trasforma i bit in grafica
+         */
+        function draw() {
+            if (!isActive) return;
+            animationId = requestAnimationFrame(draw);
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            
+            // Estrazione dati di ampiezza temporale
+            analyser.getByteTimeDomainData(dataArray);
+
+            // Pulizia canvas
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Configurazione linea oscilloscopio
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#22d3ee';
+            ctx.beginPath();
+
+            let sliceWidth = canvas.width / bufferLength;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                let v = dataArray[i] / 128.0; // Normalizzazione segnale
+                let y = v * (canvas.height / 2);
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+
+                x += sliceWidth;
+            }
+
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+        }
+
+        // Gestore dell'evento click sul bottone
+        btn.onclick = () => {
+            if (isActive) {
+                stopAudio();
+            } else {
+                startAudio().catch(err => {
+                    alert("Errore: Impossibile accedere al microfono.");
+                    console.error(err);
+                });
+            }
+        };
+    </script>
+</body>
+</html>
