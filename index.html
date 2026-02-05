@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratorio JS - Hub Principale</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            
+            /* Colori Tematici */
+            --color-audio: #22d3ee; /* Ciano */
+            --color-3d: #a855f7;    /* Viola */
+            --color-space: #f59e0b; /* Arancio */
+            --color-pdf: #ef4444;   /* Rosso */
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        /* GRIGLIA RESPONSIVE */
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr; /* Mobile: 1 colonna */
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        /* Tablet: 2 colonne */
+        @media (min-width: 600px) {
+            .grid-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Desktop: 3 colonne */
+        @media (min-width: 900px) {
+            .grid-container {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        /* STILE DELLE CARD (PULSANTI) */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 25px;
+            text-decoration: none;
+            color: white;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        /* Icone grandi */
+        .icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            transition: transform 0.3s;
+        }
+        
+        .card:hover .icon {
+            transform: scale(1.1);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .card-desc {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        /* Bordi colorati per categoria */
+        .card.audio:hover { border-color: var(--color-audio); box-shadow: 0 0 20px rgba(34, 211, 238, 0.2); }
+        .card.audio .icon { color: var(--color-audio); }
+
+        .card.threed:hover { border-color: var(--color-3d); box-shadow: 0 0 20px rgba(168, 85, 247, 0.2); }
+        .card.threed .icon { color: var(--color-3d); }
+
+        .card.space:hover { border-color: var(--color-space); box-shadow: 0 0 20px rgba(245, 158, 11, 0.2); }
+        .card.space .icon { color: var(--color-space); }
+
+        .card.pdf:hover { border-color: var(--color-pdf); box-shadow: 0 0 20px rgba(239, 68, 68, 0.2); }
+        .card.pdf .icon { color: var(--color-pdf); }
+
+        footer {
+            margin-top: 50px;
+            color: #475569;
+            font-size: 0.8rem;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Dal Suono allo Spazio</h1>
+        <p class="subtitle">Laboratorio Avanzato JavaScript - 5EL</p>
+    </header>
+
+    <div class="grid-container">
+        
+        <a href="oscilloscopio.html" class="card audio">
+            <div class="icon">🌊</div>
+            <div class="card-title">Oscilloscopio</div>
+            <div class="card-desc">Visualizzazione onde sonore nel tempo (Time Domain)</div>
+        </a>
+
+        <a href="spettroscopio.html" class="card audio">
+            <div class="icon">🎵</div>
+            <div class="card-title">Spettroscopio</div>
+            <div class="card-desc">Analisi frequenze con colori HSL (Frequency Domain)</div>
+        </a>
+
+        <a href="monitor2.html" class="card threed">
+            <div class="icon">🧊</div>
+            <div class="card-title">Hello World 3D</div>
+            <div class="card-desc">Le basi di Three.js: Scena, Camera e Mesh</div>
+        </a>
+
+        <a href="monitor3.html" class="card threed">
+            <div class="icon">🎮</div>
+            <div class="card-title">3D Interattivo</div>
+            <div class="card-desc">Controlli luce, Regex e interazione utente</div>
+        </a>
+
+        <a href="monitor1.html" class="card space">
+            <div class="icon">🪐</div>
+            <div class="card-title">NASA Tracker</div>
+            <div class="card-desc">Dati reali asteroidi (API) e matematica orbitale</div>
+        </a>
+
+        <a href="presentazione.pdf" class="card pdf" target="_blank">
+            <div class="icon">📄</div>
+            <div class="card-title">Presentazione</div>
+            <div class="card-desc">Slide tecniche del progetto (PDF)</div>
+        </a>
+
+    </div>
+
+    <footer>
+        &copy; 2024 Classe 5EL - TPSIT Prof. Capolupo
+    </footer>
+
+</body>
+</html>
